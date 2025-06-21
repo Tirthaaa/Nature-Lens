@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
-import { Camera, Upload, X, Loader2, Leaf, Globe, Sprout, Clock, Trees, ShieldAlert } from "lucide-react";
+import { Camera, Upload, X, Loader2, Leaf, Globe, Sprout, Clock, Trees, ShieldAlert, SwitchCamera } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,12 +19,34 @@ export function PlantIdentifier() {
   const [cameraActive, setCameraActive] = useState(false);
   const [activeTab, setActiveTab] = useState("upload");
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
 
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Check for multiple cameras on mount
+  useEffect(() => {
+    const checkForMultipleCameras = async () => {
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+              console.log("enumerateDevices() not supported.");
+              return;
+            }
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            if (videoDevices.length > 1) {
+                setHasMultipleCameras(true);
+            }
+        } catch (err) {
+            console.error("Error enumerating devices:", err);
+        }
+    };
+    checkForMultipleCameras();
+  }, []);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -34,37 +56,64 @@ export function PlantIdentifier() {
     setCameraActive(false);
   }, []);
 
+  // Handles initializing and cleaning up the camera stream
   useEffect(() => {
+    if (!cameraActive) {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      return;
+    }
+
+    let isCancelled = false;
+    
     const initCamera = async () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
       setCameraError(null);
+      
+      const constraints: MediaStreamConstraints = {
+        video: { facingMode: { ideal: facingMode } }
+      };
+
       try {
-        // Use more general constraints to support more devices (like laptops)
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (!isCancelled && videoRef.current) {
           videoRef.current.srcObject = stream;
-          // Explicitly call play() to handle browsers that don't honor autoplay
           videoRef.current.play();
           streamRef.current = stream;
         }
       } catch (err) {
-        console.error("Error accessing camera:", err);
-        setCameraError("Could not access camera. Please check your browser permissions and try again.");
-        setCameraActive(false);
+        console.error("Error accessing camera with facingMode:", err);
+        try {
+            const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            if (!isCancelled && videoRef.current) {
+              videoRef.current.srcObject = fallbackStream;
+              videoRef.current.play();
+              streamRef.current = fallbackStream;
+            }
+        } catch (fallbackErr) {
+            console.error("Fallback camera access also failed:", fallbackErr);
+            if (!isCancelled) {
+              setCameraError("Could not access camera. Please check browser permissions.");
+              setCameraActive(false);
+            }
+        }
       }
     };
 
-    if (cameraActive) {
-      initCamera();
-    }
+    initCamera();
 
     return () => {
+      isCancelled = true;
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
     };
-  }, [cameraActive]);
-
+  }, [cameraActive, facingMode]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -109,6 +158,10 @@ export function PlantIdentifier() {
       stopCamera();
     }
   }, [stopCamera, toast]);
+
+  const handleSwitchCamera = () => {
+    setFacingMode(prevMode => (prevMode === 'user' ? 'environment' : 'user'));
+  };
 
   const handleSubmit = async () => {
     if (!preview) {
@@ -245,13 +298,22 @@ export function PlantIdentifier() {
                 <div className="relative w-full h-full">
                   <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover"></video>
                   <canvas ref={canvasRef} className="hidden"></canvas>
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-4">
+                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4">
+                     <div className="w-16 flex justify-center">
+                        {hasMultipleCameras && (
+                            <Button onClick={handleSwitchCamera} size="icon" variant="secondary" className="rounded-full">
+                                <SwitchCamera />
+                            </Button>
+                        )}
+                    </div>
                     <Button onClick={captureImage} size="lg" className="rounded-full !p-4 h-16 w-16 bg-white hover:bg-gray-200">
                       <Camera className="w-8 h-8 text-black" />
                     </Button>
-                    <Button onClick={stopCamera} size="icon" variant="destructive" className="rounded-full self-center">
-                        <X />
-                    </Button>
+                     <div className="w-16 flex justify-center">
+                        <Button onClick={stopCamera} size="icon" variant="destructive" className="rounded-full">
+                            <X />
+                        </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
