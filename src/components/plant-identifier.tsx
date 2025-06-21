@@ -38,9 +38,12 @@ export function PlantIdentifier() {
     const initCamera = async () => {
       setCameraError(null);
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        // Use more general constraints to support more devices (like laptops)
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          // Explicitly call play() to handle browsers that don't honor autoplay
+          videoRef.current.play();
           streamRef.current = stream;
         }
       } catch (err) {
@@ -85,6 +88,16 @@ export function PlantIdentifier() {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
+      
+      if (video.videoWidth === 0 || video.videoHeight === 0) {
+        toast({
+            variant: "destructive",
+            title: "Camera Not Ready",
+            description: "Video feed is not available yet. Please wait a moment and try again.",
+        });
+        return;
+      }
+
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const context = canvas.getContext('2d');
@@ -95,7 +108,7 @@ export function PlantIdentifier() {
       }
       stopCamera();
     }
-  }, [stopCamera]);
+  }, [stopCamera, toast]);
 
   const handleSubmit = async () => {
     if (!preview) {
