@@ -21,12 +21,13 @@ const IdentifyPlantInputSchema = z.object({
 export type IdentifyPlantInput = z.infer<typeof IdentifyPlantInputSchema>;
 
 const IdentifyPlantOutputSchema = z.object({
-  scientificName: z.string().describe('The scientific name of the plant. Returns "N/A" if not a plant or if unknown.'),
-  commonName: z.string().describe('The common name of the plant. Returns "N/A" if not a plant or if unknown.'),
-  habitat: z.string().describe('The natural environment of the plant. Returns "N/A" if not a plant or if unknown.'),
-  species: z.string().describe('The species of the plant. Returns "N/A" if not a plant or if unknown.'),
-  lifespan: z.string().describe('The typical lifespan of the plant. Returns "N/A" if not a plant or if unknown.'),
-  description: z.string().describe('A detailed description of the plant. If the image is not a plant, describe what is in the image instead.'),
+  isPlant: z.boolean().describe('Whether the image contains a plant.'),
+  commonName: z.string().describe('The common name of the plant. Returns "Unknown" if not a plant or cannot be identified.'),
+  scientificName: z.string().describe('The scientific name of the plant. Returns "Unknown" if not a plant or cannot be identified.'),
+  habitat: z.string().describe('The natural environment of the plant. Returns "Unknown" if not a plant or cannot be identified.'),
+  species: z.string().describe('The species of the plant. Returns "Unknown" if not a plant or cannot be identified.'),
+  lifespan: z.string().describe('The typical lifespan of the plant. Returns "Unknown" if not a plant or cannot be identified.'),
+  description: z.string().describe('A detailed description. If it is a plant, describe the plant. If not, describe what is in the image.'),
 });
 export type IdentifyPlantOutput = z.infer<typeof IdentifyPlantOutputSchema>;
 
@@ -38,11 +39,13 @@ const prompt = ai.definePrompt({
   name: 'identifyPlantPrompt',
   input: {schema: IdentifyPlantInputSchema},
   output: {schema: IdentifyPlantOutputSchema},
-  prompt: `You are an expert botanist. Your task is to identify the plant in the provided photo. 
-  
-  If the image contains a plant, provide its common and scientific names, habitat, species, lifespan, and a detailed description.
-  
-  If you are certain the image does not contain a plant, or if you cannot identify the plant, return "N/A" for all fields except for the description. In the description, explain what you see in the image.
+  prompt: `You are an expert botanist. Your task is to analyze the provided photo.
+
+  First, determine if the image contains a plant. Set the 'isPlant' field accordingly.
+
+  If it is a plant, identify it and fill in all the details: common name, scientific name, habitat, species, lifespan, and a detailed description. If any detail is unknown, use the string "Unknown".
+
+  If it is not a plant, set 'isPlant' to false, fill the plant-specific fields with "Unknown", and provide a description of what you see in the image.
   
   Photo: {{media url=photoDataUri}}`,
 });

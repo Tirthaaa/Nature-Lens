@@ -8,8 +8,8 @@ export async function handleIdentifyPlant(
   try {
     const input: IdentifyPlantInput = { photoDataUri: imageDataUri };
     const result = await identifyPlant(input);
-    if (result.commonName === 'N/A') {
-      return { error: `Could not identify a plant in the image. The AI saw: ${result.description}` };
+    if (!result.isPlant) {
+      return { error: `This doesn't look like a plant. The AI saw: ${result.description}` };
     }
     return result;
   } catch (e) {
