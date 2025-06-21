@@ -12,8 +12,9 @@ export async function handleIdentifyPlant(
       return { error: `This doesn't look like a plant. The AI saw: ${result.description}` };
     }
     return result;
-  } catch (e) {
+  } catch (e: any) {
     console.error('Error identifying plant:', e);
-    return { error: `An unexpected error occurred during identification. Please try again.` };
+    const errorMessage = e.message || 'An unexpected error occurred during identification.';
+    return { error: `Identification failed: ${errorMessage}` };
   }
 }

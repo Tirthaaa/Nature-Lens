@@ -48,6 +48,14 @@ const prompt = ai.definePrompt({
   If it is not a plant, set 'isPlant' to false, fill the plant-specific fields with "Unknown", and provide a description of what you see in the image.
   
   Photo: {{media url=photoDataUri}}`,
+  config: {
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+    ],
+  },
 });
 
 const identifyPlantFlow = ai.defineFlow(
