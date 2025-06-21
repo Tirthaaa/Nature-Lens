@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
-import { Camera, Upload, X, Loader2, Leaf, Globe, Sprout, Clock, Trees } from "lucide-react";
+import { Camera, Upload, X, Loader2, Leaf, Globe, Sprout, Clock, Trees, ShieldAlert } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,7 @@ export function PlantIdentifier() {
   const [loading, setLoading] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [activeTab, setActiveTab] = useState("upload");
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,10 +35,33 @@ export function PlantIdentifier() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      stopCamera();
+    const initCamera = async () => {
+      setCameraError(null);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          streamRef.current = stream;
+        }
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+        setCameraError("Could not access camera. Please check your browser permissions and try again.");
+        setCameraActive(false);
+      }
     };
-  }, [stopCamera]);
+
+    if (cameraActive) {
+      initCamera();
+    }
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [cameraActive]);
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -51,28 +75,11 @@ export function PlantIdentifier() {
     }
   };
 
-  const startCamera = useCallback(async () => {
-    try {
-      if (streamRef.current) {
-        stopCamera();
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-      }
-      setCameraActive(true);
-      setPreview(null);
-      setResult(null);
-    } catch (err) {
-      console.error("Error accessing camera:", err);
-      toast({
-        variant: "destructive",
-        title: "Camera Error",
-        description: "Could not access the camera. Please check permissions and try again.",
-      });
-    }
-  }, [toast, stopCamera]);
+  const startCamera = useCallback(() => {
+    setPreview(null);
+    setResult(null);
+    setCameraActive(true);
+  }, []);
   
   const captureImage = useCallback(() => {
     if (videoRef.current && canvasRef.current) {
@@ -120,6 +127,7 @@ export function PlantIdentifier() {
   const clearPreview = () => {
     setPreview(null);
     setResult(null);
+    setCameraError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -128,7 +136,7 @@ export function PlantIdentifier() {
   const onTabChange = (value: string) => {
     setActiveTab(value);
     clearPreview();
-    if(value === 'upload') {
+    if(value !== 'camera') {
         stopCamera();
     }
   }
@@ -213,17 +221,16 @@ export function PlantIdentifier() {
           </TabsContent>
           <TabsContent value="camera" className="mt-4">
             <div className="flex flex-col items-center justify-center p-0 border-2 border-dashed rounded-lg text-center h-80 bg-black overflow-hidden relative">
-              {preview && !cameraActive && (
+              {preview ? (
                  <div className="relative w-full h-full bg-background">
                   <Image src={preview} alt="Captured image" fill className="object-contain rounded-md" />
                   <Button variant="destructive" size="icon" className="absolute top-2 right-2 rounded-full z-10" onClick={clearPreview}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
-              )}
-              {cameraActive && (
+              ) : cameraActive ? (
                 <div className="relative w-full h-full">
-                  <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover"></video>
                   <canvas ref={canvasRef} className="hidden"></canvas>
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-4">
                     <Button onClick={captureImage} size="lg" className="rounded-full !p-4 h-16 w-16 bg-white hover:bg-gray-200">
@@ -234,15 +241,25 @@ export function PlantIdentifier() {
                     </Button>
                   </div>
                 </div>
-              )}
-              {!cameraActive && !preview &&(
+              ) : (
                 <div className="flex flex-col items-center justify-center h-full text-background p-4">
-                  <Camera className="w-12 h-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold text-white">Ready to start?</h3>
-                  <p className="text-sm text-muted-foreground mb-4">Point your camera at a plant</p>
-                  <Button onClick={startCamera} variant="secondary">
-                    Start Camera
-                  </Button>
+                  {cameraError ? (
+                    <div className="text-destructive text-center">
+                      <ShieldAlert className="w-12 h-12 mx-auto mb-4" />
+                      <p className="font-semibold">Camera Error</p>
+                      <p className="text-sm px-4">{cameraError}</p>
+                      <Button onClick={startCamera} variant="secondary" className="mt-4">Try Again</Button>
+                    </div>
+                  ) : (
+                    <>
+                      <Camera className="w-12 h-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold text-white">Ready to start?</h3>
+                      <p className="text-sm text-muted-foreground mb-4">Point your camera at a plant</p>
+                      <Button onClick={startCamera} variant="secondary">
+                        Start Camera
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
