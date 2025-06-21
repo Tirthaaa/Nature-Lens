@@ -22,12 +22,13 @@ const IdentifyPlantInputSchema = z.object({
 export type IdentifyPlantInput = z.infer<typeof IdentifyPlantInputSchema>;
 
 const IdentifyPlantOutputSchema = z.object({
-  scientificName: z.string().describe('The scientific name of the plant.'),
-  commonName: z.string().describe('The common name of the plant.'),
-  habitat: z.string().describe('The natural environment of the plant.'),
-  species: z.string().describe('The species of the plant.'),
-  lifespan: z.string().describe('The typical lifespan of the plant.'),
-  description: z.string().describe('A detailed description of the plant.'),
+  isPlant: z.boolean().describe("Whether or not the image contains a plant."),
+  scientificName: z.string().describe('The scientific name of the plant. Returns "N/A" if not a plant.'),
+  commonName: z.string().describe('The common name of the plant. Returns "N/A" if not a plant.'),
+  habitat: z.string().describe('The natural environment of the plant. Returns "N/A" if not a plant.'),
+  species: z.string().describe('The species of the plant. Returns "N/A" if not a plant.'),
+  lifespan: z.string().describe('The typical lifespan of the plant. Returns "N/A" if not a plant.'),
+  description: z.string().describe('A detailed description of the plant, or a description of what is in the image if it is not a plant.'),
 });
 export type IdentifyPlantOutput = z.infer<typeof IdentifyPlantOutputSchema>;
 
@@ -39,9 +40,12 @@ const prompt = ai.definePrompt({
   name: 'identifyPlantPrompt',
   input: {schema: IdentifyPlantInputSchema},
   output: {schema: IdentifyPlantOutputSchema},
-  prompt: `You are a botanist. Given a picture of a plant, identify the plant and provide a detailed description of it.
+  prompt: `You are a botanist. Given a picture, determine if it contains a plant.
+  
+  If the image contains a plant, identify it and provide a detailed description. Set isPlant to true and fill in the other fields.
 
-  Please provide the scientific name, common name, habitat, species, lifespan, and a detailed description of the plant.
+  If the image does NOT contain a plant, set isPlant to false, set the string fields to "N/A", and briefly describe what is in the image in the description field.
+  
   Photo: {{media url=photoDataUri}}`,
 });
 

@@ -8,10 +8,12 @@ export async function handleIdentifyPlant(
   try {
     const input: IdentifyPlantInput = { photoDataUri: imageDataUri };
     const result = await identifyPlant(input);
+    if (!result.isPlant) {
+      return { error: `Could not identify a plant in the image. The AI saw: ${result.description}` };
+    }
     return result;
   } catch (e) {
     console.error('Error identifying plant:', e);
-    const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
-    return { error: `Failed to identify the plant. Please try another image.` };
+    return { error: `An unexpected error occurred during identification. Please try again.` };
   }
 }
